@@ -4,18 +4,11 @@ A local web dashboard for controlling Toshiba heat pumps (AC units) from your PC
 
 ## Features
 
-- **Full control**: Power, mode, temperature, fan speed, swing, power level, special modes, air pure ion
-- **Real-time updates**: Live temperature and state updates via polling
-- **Scheduling**: Create recurring day programs with multiple periods (e.g., "Heat to 22°C every weekday at 7am")
-- **Smart UI**: Only shows controls your device actually supports
-- **Reconnect**: Auto-reconnects every 60s when disconnected, with a manual reconnect button
-- **HADA swing mode**: Supports newer Toshiba units with HADA swing (patched into the library)
-- **Data logging**: Records temperature, energy consumption, and device state to SQLite every 5 minutes — toggle on/off from the UI
-- **CSV export**: Download logged data as CSV from the dashboard for analysis
-- **Energy delta tracking**: Per-interval energy consumption with automatic gap detection (app restarts, counter resets)
-- **Weather enrichment**: Backfill missing outdoor temperatures from [Open-Meteo](https://open-meteo.com/) (free, no API key)
-- **Dark/Light theme**: Toggle with one click, persists across sessions
-- **First-run setup**: Prompts for credentials on first launch if `.env` is not configured
+- **Full control**: Power, mode, temperature, fan speed, swing, power level, special modes
+- **Scheduling**: Recurring day programs with multiple periods
+- **Data logging**: Temperature, energy consumption (with per-interval delta), and device state to SQLite — export as CSV
+- **Weather enrichment**: Backfill missing outdoor temps from [Open-Meteo](https://open-meteo.com/)
+- **Smart UI**: Only shows controls your device supports, auto-reconnect, dark/light theme
 
 ## Prerequisites
 
