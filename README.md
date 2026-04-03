@@ -54,7 +54,7 @@ First startup takes ~30 seconds while connecting to the Toshiba cloud API. If th
 - **Frontend**: Jinja2 templates + HTMX + custom CSS
 - **Real-time**: Server-Sent Events (SSE)
 - **Scheduling**: APScheduler
-- **Data storage**: SQLite (built into Python, no installation needed)
+- **Data storage**: SQLite
 - **Heat pump API**: [toshiba-ac](https://github.com/KaSroka/Toshiba-AC-control) library (cloud-based via Azure IoT Hub)
 
 ## How It Works
