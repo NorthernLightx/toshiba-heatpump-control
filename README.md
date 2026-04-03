@@ -7,7 +7,7 @@ A local web dashboard for controlling Toshiba heat pumps (AC units) from your PC
 - **Full control**: Power, mode, temperature, fan speed, swing, power level, special modes
 - **Scheduling**: Recurring day programs with multiple periods
 - **Data logging**: Temperature, energy consumption (with per-interval delta), and device state to SQLite — export as CSV
-- **Weather enrichment**: Backfill missing outdoor temps from [Open-Meteo](https://open-meteo.com/)
+- **Weather enrichment**: Backfill wind speed, humidity, solar radiation, precipitation, pressure, cloud cover from [Open-Meteo](https://open-meteo.com/)
 - **Smart UI**: Only shows controls your device supports, auto-reconnect, dark/light theme
 
 ## Prerequisites
@@ -70,9 +70,9 @@ The app logs device state to `data/readings.db` (SQLite) every 5 minutes while c
 - **API**: `GET /api/readings?limit=1000&offset=0` returns JSON, `GET /api/readings/stats` returns summary
 - **Config**: Set `DATA_LOGGING=false` in `.env` to disable by default
 
-### Backfill outdoor temperature from weather data
+### Enrich with weather data
 
-If the device doesn't report outdoor temperature (or the app was off), you can fill gaps using historical weather data:
+Backfill weather conditions for all readings — outdoor temperature (for gaps), wind speed, humidity, solar radiation, precipitation, pressure, and cloud cover:
 
 ```bash
 python scripts/enrich_weather.py --city Stockholm

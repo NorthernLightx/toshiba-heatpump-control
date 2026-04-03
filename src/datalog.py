@@ -24,7 +24,13 @@ CREATE TABLE IF NOT EXISTS readings (
     ac_status TEXT,
     ac_mode TEXT,
     fan_mode TEXT,
-    power_selection TEXT
+    power_selection TEXT,
+    wind_speed_kmh REAL,
+    humidity_pct REAL,
+    solar_radiation_wm2 REAL,
+    precipitation_mm REAL,
+    pressure_hpa REAL,
+    cloud_cover_pct REAL
 )
 """
 
@@ -35,9 +41,15 @@ INSERT INTO readings (
 ) VALUES (?, ?, ?, 'device', ?, ?, ?, ?, ?, ?, ?)
 """
 
-MIGRATE_ADD_DELTA = (
-    "ALTER TABLE readings ADD COLUMN energy_delta_wh REAL"
-)
+WEATHER_COLUMNS = [
+    "energy_delta_wh REAL",
+    "wind_speed_kmh REAL",
+    "humidity_pct REAL",
+    "solar_radiation_wm2 REAL",
+    "precipitation_mm REAL",
+    "pressure_hpa REAL",
+    "cloud_cover_pct REAL",
+]
 
 
 class DataLogger:
@@ -74,9 +86,11 @@ class DataLogger:
             row[1]
             for row in self._db.execute("PRAGMA table_info(readings)").fetchall()
         }
-        if "energy_delta_wh" not in columns:
-            self._db.execute(MIGRATE_ADD_DELTA)
-            logger.info("Migrated: added energy_delta_wh column")
+        for col_def in WEATHER_COLUMNS:
+            col_name = col_def.split()[0]
+            if col_name not in columns:
+                self._db.execute(f"ALTER TABLE readings ADD COLUMN {col_def}")
+                logger.info("Migrated: added %s column", col_name)
 
     def _calc_energy_delta(self, current_wh: float | None) -> float | None:
         """Calculate energy consumed since last reading.
