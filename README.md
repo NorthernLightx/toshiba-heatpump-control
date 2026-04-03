@@ -71,6 +71,12 @@ python -m pytest tests/ -v
 
 Test dependencies are included in `requirements.txt`. Tests mock the toshiba-ac library, so no real credentials or device are needed.
 
+## Tested On
+
+- **Toshiba Kontur 25** (RAS-B10N4KVRG-E / RAS-10PAVPG-ND)
+
+Other Toshiba models using the Toshiba Home AC Control app may work but have not been tested.
+
 ## Known Limitations
 
 - **Cloud-dependent**: Requires internet connection (communicates via Toshiba's cloud, not directly with the device)
