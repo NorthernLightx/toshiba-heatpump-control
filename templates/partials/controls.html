@@ -1,0 +1,163 @@
+{% if error %}
+<div data-error="{{ error }}"></div>
+{% endif %}
+
+{% set sup = state.supported %}
+
+<!-- Temperature Hero -->
+<div class="temp-hero">
+    <div class="temp-label">Set Temperature</div>
+    <div class="temp-display">
+        <button class="temp-btn"
+                hx-post="/temp" hx-vals='{"value": {{ (state.ac_temperature or 20) - 1 }}}'
+                hx-target="#controls" hx-swap="innerHTML">-</button>
+        <span class="temp-value">{{ state.ac_temperature or "--" }}</span>
+        <span class="temp-unit">&deg;C</span>
+        <button class="temp-btn"
+                hx-post="/temp" hx-vals='{"value": {{ (state.ac_temperature or 20) + 1 }}}'
+                hx-target="#controls" hx-swap="innerHTML">+</button>
+    </div>
+    <div class="temp-readings">
+        <div>Room <span>{{ state.ac_indoor_temperature or "--" }}&deg;C</span></div>
+        <div>Outside <span>{{ state.ac_outdoor_temperature or "--" }}&deg;C</span></div>
+    </div>
+</div>
+
+<!-- Controls Card -->
+<div class="card">
+    <!-- Power -->
+    <div class="section">
+        <div class="power-row">
+            <div class="power-label">Power</div>
+            <div class="pill-group">
+                {% for val in [AcStatus.ON, AcStatus.OFF] %}
+                <button class="pill {% if state.ac_status == val %}{% if val.value == 'ON' %}active-green{% else %}active-red{% endif %}{% endif %}"
+                        hx-post="/power" hx-vals='{"value": "{{ val.value }}"}'
+                        hx-target="#controls" hx-swap="innerHTML">
+                    {{ labels.ac_status[val] }}
+                </button>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Mode -->
+    <div class="section">
+        <div class="section-label">Mode</div>
+        <div class="pill-group">
+            {% for val in [AcMode.AUTO, AcMode.COOL, AcMode.HEAT, AcMode.DRY, AcMode.FAN] %}
+            {% if val.value in sup.modes %}
+            <button class="pill {% if state.ac_mode == val %}active{% endif %}"
+                    hx-post="/mode" hx-vals='{"value": "{{ val.value }}"}'
+                    hx-target="#controls" hx-swap="innerHTML">
+                {{ labels.ac_mode[val] }}
+            </button>
+            {% endif %}
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Fan Speed -->
+    <div class="section">
+        <div class="section-label">Fan</div>
+        <div class="pill-group">
+            {% for val in [AcFanMode.AUTO, AcFanMode.QUIET, AcFanMode.LOW, AcFanMode.MEDIUM_LOW, AcFanMode.MEDIUM, AcFanMode.MEDIUM_HIGH, AcFanMode.HIGH] %}
+            {% if val.value in sup.fan_modes %}
+            <button class="pill {% if state.ac_fan_mode == val %}active{% endif %}"
+                    hx-post="/fan" hx-vals='{"value": "{{ val.value }}"}'
+                    hx-target="#controls" hx-swap="innerHTML">
+                {{ labels.ac_fan_mode[val] }}
+            </button>
+            {% endif %}
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Swing -->
+    <div class="section">
+        <div class="section-label">Swing</div>
+        <div class="pill-group">
+            {% for val in [AcSwingMode.OFF, AcSwingMode.SWING_VERTICAL, AcSwingMode.SWING_HORIZONTAL, AcSwingMode.SWING_VERTICAL_AND_HORIZONTAL, AcSwingMode.HADA, AcSwingMode.FIXED_1, AcSwingMode.FIXED_2, AcSwingMode.FIXED_3, AcSwingMode.FIXED_4, AcSwingMode.FIXED_5] %}
+            {% if val.value in sup.swing_modes %}
+            <button class="pill {% if state.ac_swing_mode == val %}active{% endif %}"
+                    hx-post="/swing" hx-vals='{"value": "{{ val.value }}"}'
+                    hx-target="#controls" hx-swap="innerHTML">
+                {{ labels.ac_swing_mode[val] }}
+            </button>
+            {% endif %}
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Power Level -->
+    <div class="section">
+        <div class="section-label">Power Level</div>
+        <div class="pill-group">
+            {% for val in [AcPowerSelection.POWER_50, AcPowerSelection.POWER_75, AcPowerSelection.POWER_100] %}
+            {% if val.value in sup.power_selections %}
+            <button class="pill {% if state.ac_power_selection == val %}active{% endif %}"
+                    hx-post="/power-sel" hx-vals='{"value": "{{ val.value }}"}'
+                    hx-target="#controls" hx-swap="innerHTML">
+                {{ labels.ac_power_selection[val] }}
+            </button>
+            {% endif %}
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Special Mode -->
+    {% if sup.merit_a | length > 1 %}
+    <div class="section">
+        <div class="section-label">Special Mode</div>
+        <div class="pill-group">
+            {% for val in [AcMeritA.HIGH_POWER, AcMeritA.ECO, AcMeritA.CDU_SILENT_1, AcMeritA.CDU_SILENT_2, AcMeritA.SLEEP_CARE, AcMeritA.FLOOR, AcMeritA.COMFORT, AcMeritA.HEATING_8C, AcMeritA.OFF] %}
+            {% if val.value in sup.merit_a %}
+            <button class="pill {% if state.ac_merit_a == val %}active{% endif %}"
+                    hx-post="/merit-a" hx-vals='{"value": "{{ val.value }}"}'
+                    hx-target="#controls" hx-swap="innerHTML">
+                {{ labels.ac_merit_a[val] }}
+            </button>
+            {% endif %}
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Fireplace -->
+    {% if sup.merit_b | length > 1 %}
+    <div class="section">
+        <div class="section-label">Fireplace</div>
+        <div class="pill-group">
+            {% for val in [AcMeritB.FIREPLACE_1, AcMeritB.FIREPLACE_2, AcMeritB.OFF] %}
+            {% if val.value in sup.merit_b %}
+            <button class="pill {% if state.ac_merit_b == val %}active{% endif %}"
+                    hx-post="/merit-b" hx-vals='{"value": "{{ val.value }}"}'
+                    hx-target="#controls" hx-swap="innerHTML">
+                {{ labels.ac_merit_b[val] }}
+            </button>
+            {% endif %}
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Air Pure Ion -->
+    {% if sup.air_pure_ion | length > 1 %}
+    <div class="section">
+        <div class="power-row">
+            <div class="power-label">Air Pure Ion</div>
+            <div class="pill-group">
+                {% for val in [AcAirPureIon.ON, AcAirPureIon.OFF] %}
+                {% if val.value in sup.air_pure_ion %}
+                <button class="pill {% if state.ac_air_pure_ion == val %}{% if val.value == 'ON' %}active-green{% else %}active{% endif %}{% endif %}"
+                        hx-post="/air-pure" hx-vals='{"value": "{{ val.value }}"}'
+                        hx-target="#controls" hx-swap="innerHTML">
+                    {{ labels.ac_air_pure_ion[val] }}
+                </button>
+                {% endif %}
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>

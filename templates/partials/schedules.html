@@ -1,0 +1,228 @@
+<div class="card">
+    <div class="section">
+        <div class="section-label">Day Programs</div>
+
+        {% if programs %}
+        {% for prog in programs %}
+        {% set prog_idx = loop.index0 %}
+        <div class="program {% if not prog.enabled %}program-disabled{% endif %}">
+            <!-- Program header -->
+            <div class="program-header">
+                <div class="program-days">{{ prog.days_str }}</div>
+                <div class="program-controls">
+                    <button class="pill {% if prog.enabled %}active-green{% endif %} schedule-toggle-btn"
+                            hx-post="/program/toggle" hx-vals='{"index": {{ loop.index0 }}}'
+                            hx-target="#schedules" hx-swap="innerHTML">
+                        {{ "On" if prog.enabled else "Off" }}
+                    </button>
+                    <button class="period-del"
+                            hx-post="/program/delete" hx-vals='{"index": {{ loop.index0 }}}'
+                            hx-target="#schedules" hx-swap="innerHTML"
+                            hx-confirm="Delete this program and all its periods?"
+                            title="Delete program">
+                        &times;
+                    </button>
+                </div>
+            </div>
+
+            <!-- Visual timeline -->
+            <div class="timeline">
+                {% set periods = prog.sorted_periods %}
+                {% if periods %}
+                {# Last period wraps around: from last period to first period (midnight wrap) #}
+                {% set last_p = periods[-1] %}
+                {% set first_p = periods[0] %}
+                {% if first_p.time_minutes > 0 %}
+                {% set wrap_width = (first_p.time_minutes / 1440 * 100) %}
+                <div class="timeline-block" style="left: 0%; width: {{ wrap_width }}%;"
+                     title="{{ last_p.name }}: wraps from {{ last_p.time_str }} — {{ last_p.summary }}">
+                    <span class="timeline-temp">{{ last_p.summary }}</span>
+                </div>
+                {% endif %}
+                {# Regular periods #}
+                {% for p in periods %}
+                {% set next_p = periods[(loop.index0 + 1) % periods|length] %}
+                {% set start_min = p.time_minutes %}
+                {% if loop.last %}
+                {% set end_min = 1440 %}
+                {% else %}
+                {% set end_min = next_p.time_minutes %}
+                {% endif %}
+                {% set width_pct = ((end_min - start_min) / 1440 * 100) %}
+                {% set left_pct = (start_min / 1440 * 100) %}
+                <div class="timeline-block" style="left: {{ left_pct }}%; width: {{ width_pct }}%;"
+                     title="{{ p.name }}: {{ p.time_str }} — {{ p.summary }}">
+                    <span class="timeline-temp">{{ p.summary }}</span>
+                </div>
+                {% endfor %}
+                {% endif %}
+                <!-- Hour markers -->
+                <div class="timeline-markers">
+                    <span style="left: 0%">0</span>
+                    <span style="left: 25%">6</span>
+                    <span style="left: 50%">12</span>
+                    <span style="left: 75%">18</span>
+                    <span style="left: 100%">24</span>
+                </div>
+            </div>
+
+            <!-- Period list -->
+            <div class="period-list">
+                {% for p in periods %}
+                <div class="period-item" id="period-{{ p.id }}">
+                    <button class="period-del"
+                            hx-post="/period/delete"
+                            hx-vals='{"program": {{ prog_idx }}, "id": "{{ p.id }}"}'
+                            hx-target="#schedules" hx-swap="innerHTML"
+                            hx-confirm="Delete period '{{ p.name }}'?"
+                            title="Delete period">
+                        &times;
+                    </button>
+                    <form class="period-edit-form"
+                          hx-post="/period/update"
+                          hx-target="#schedules" hx-swap="innerHTML"
+                          hx-trigger="change">
+                        <input type="hidden" name="program" value="{{ prog_idx }}">
+                        <input type="hidden" name="id" value="{{ p.id }}">
+                        <input type="time" name="time" value="{{ p.time_str }}"
+                               class="period-field period-field-time" title="Click to change time">
+                        <input type="text" name="name" value="{{ p.name }}"
+                               class="period-field period-field-name" title="Click to rename">
+                        <select name="mode" class="period-field period-field-mode" title="Click to change mode">
+                            {% for m in ["HEAT", "COOL", "AUTO"] %}
+                            <option value="{{ m }}" {% if p.mode == m %}selected{% endif %}>{{ m.capitalize() }}</option>
+                            {% endfor %}
+                        </select>
+                        <input type="number" name="temperature" value="{{ p.temperature }}"
+                               min="5" max="30"
+                               class="period-field period-field-temp" title="Click to change temperature">
+                        <span class="period-unit">&deg;C</span>
+                    </form>
+                </div>
+                {% endfor %}
+            </div>
+
+            <!-- Add period -->
+            <details class="schedule-add">
+                <summary class="schedule-add-btn">+ Add Period</summary>
+                <form class="schedule-form"
+                      hx-post="/period/add"
+                      hx-target="#schedules" hx-swap="innerHTML">
+                    <input type="hidden" name="program" value="{{ prog_idx }}">
+                    <div class="form-row">
+                        <label>Name</label>
+                        <input type="text" name="name" placeholder="e.g. Wake" required class="form-input">
+                    </div>
+                    <div class="form-row">
+                        <label>Time</label>
+                        <input type="time" name="time" value="07:00" required class="form-input">
+                    </div>
+                    <div class="form-row">
+                        <label>Mode</label>
+                        <select name="mode" class="form-input">
+                            <option value="HEAT">Heat</option>
+                            <option value="COOL">Cool</option>
+                            <option value="AUTO">Auto</option>
+                        </select>
+                    </div>
+                    <div class="form-row">
+                        <label>Temp</label>
+                        <div class="form-temp-picker">
+                            <input type="range" name="temperature" min="5" max="30" value="22"
+                                   class="form-range" oninput="this.nextElementSibling.textContent=this.value+'\u00b0C'">
+                            <span class="form-temp-value">22&deg;C</span>
+                        </div>
+                    </div>
+                    <div style="display: flex; gap: 8px; justify-content: flex-end;">
+                        <button type="button" class="pill form-submit"
+                                onclick="this.closest('details').removeAttribute('open')">Cancel</button>
+                        <button type="submit" class="pill active form-submit">Add</button>
+                    </div>
+                </form>
+            </details>
+        </div>
+
+        {% if not loop.last %}<div style="height: 12px;"></div>{% endif %}
+        {% endfor %}
+        {% else %}
+        <div class="schedule-empty">No programs yet</div>
+        {% endif %}
+
+        {% if schedule_error %}
+        <div class="schedule-error">{{ schedule_error }}</div>
+        {% endif %}
+
+        <!-- Add program -->
+        <details class="schedule-add" {% if schedule_error %}open{% endif %} style="margin-top: 12px;">
+            <summary class="schedule-add-btn">+ Add Day Program</summary>
+            <form class="schedule-form"
+                  hx-post="/program/add"
+                  hx-target="#schedules" hx-swap="innerHTML">
+                <div class="form-row">
+                    <label>Type</label>
+                    <select class="form-input" onchange="toggleDayPicker(this)">
+                        <option value="preset">Preset</option>
+                        <option value="custom">Pick days</option>
+                    </select>
+                </div>
+                <div id="days-preset">
+                    <div class="form-row">
+                        <label>Days</label>
+                        <select name="days" class="form-input">
+                            <option value="daily">Every day</option>
+                            <option value="mon,tue,wed,thu,fri">Weekdays</option>
+                            <option value="sat,sun">Weekends</option>
+                        </select>
+                    </div>
+                </div>
+                <div id="days-custom" style="display: none;">
+                    <div class="form-row">
+                        <label>Days</label>
+                        <div class="day-picker">
+                            {% for key, label in [("mon","M"),("tue","T"),("wed","W"),("thu","T"),("fri","F"),("sat","S"),("sun","S")] %}
+                            <label class="day-chip">
+                                <input type="checkbox" name="day" value="{{ key }}" class="day-checkbox">
+                                <span class="day-label">{{ label }}</span>
+                            </label>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+                <div style="display: flex; gap: 8px; justify-content: flex-end;">
+                    <button type="button" class="pill form-submit"
+                            onclick="this.closest('details').removeAttribute('open')">Cancel</button>
+                    <button type="submit" class="pill active form-submit" onclick="prepareDays(this.form)">Create</button>
+                </div>
+            </form>
+        </details>
+
+        <script>
+        function toggleDayPicker(sel) {
+            document.getElementById('days-preset').style.display = sel.value === 'preset' ? 'block' : 'none';
+            document.getElementById('days-custom').style.display = sel.value === 'custom' ? 'block' : 'none';
+            var presetSelect = document.querySelector('#days-preset select[name="days"]');
+            if (sel.value === 'custom') {
+                presetSelect.removeAttribute('name');
+            } else {
+                presetSelect.setAttribute('name', 'days');
+            }
+        }
+        function prepareDays(form) {
+            var customDiv = document.getElementById('days-custom');
+            if (customDiv.style.display !== 'none') {
+                var checked = form.querySelectorAll('.day-checkbox:checked');
+                var days = Array.from(checked).map(function(c) { return c.value; }).join(',');
+                if (!days) return;
+                var hidden = form.querySelector('input[name="days"]');
+                if (!hidden) {
+                    hidden = document.createElement('input');
+                    hidden.type = 'hidden';
+                    hidden.name = 'days';
+                    form.appendChild(hidden);
+                }
+                hidden.value = days;
+            }
+        }
+        </script>
+    </div>
+</div>

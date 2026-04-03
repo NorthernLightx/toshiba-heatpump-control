@@ -1,0 +1,808 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% if not state.connected %}(Offline) {% endif %}Heat Pump Control</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌡</text></svg>">
+    <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root, [data-theme="dark"] {
+            --bg: #111113;
+            --surface: #1a1a1f;
+            --surface-2: #222228;
+            --border: #2a2a32;
+            --text: #e8e8ec;
+            --text-dim: #7a7a86;
+            --text-muted: #4a4a54;
+            --accent: #e8863a;
+            --accent-glow: rgba(232, 134, 58, 0.15);
+            --green: #34c759;
+            --green-glow: rgba(52, 199, 89, 0.15);
+            --red: #ff453a;
+            --red-glow: rgba(255, 69, 58, 0.15);
+            --radius: 12px;
+            --radius-sm: 8px;
+        }
+
+        [data-theme="light"] {
+            --bg: #f2f2f7;
+            --surface: #ffffff;
+            --surface-2: #f0f0f5;
+            --border: #d8d8de;
+            --text: #1a1a1f;
+            --text-dim: #5a5a66;
+            --text-muted: #8e8e99;
+            --accent: #d97320;
+            --accent-glow: rgba(217, 115, 32, 0.1);
+            --green: #28a745;
+            --green-glow: rgba(40, 167, 69, 0.1);
+            --red: #dc3545;
+            --red-glow: rgba(220, 53, 69, 0.1);
+        }
+
+        body {
+            font-family: 'Plus Jakarta Sans', -apple-system, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .container {
+            max-width: 480px;
+            margin: 0 auto;
+            padding: 24px 20px 48px;
+        }
+
+        /* Header */
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 32px;
+        }
+
+        .header h1 {
+            font-size: 15px;
+            font-weight: 600;
+            color: var(--text-dim);
+            letter-spacing: 0.02em;
+        }
+
+        .status-badge {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            font-weight: 500;
+            padding: 4px 10px;
+            border-radius: 100px;
+            background: var(--green-glow);
+            color: var(--green);
+        }
+
+        .status-badge.disconnected {
+            background: var(--red-glow);
+            color: var(--red);
+        }
+
+        button.status-badge.disconnected {
+            border: 1px solid var(--red);
+            cursor: pointer;
+            font-family: inherit;
+            font-size: inherit;
+            font-weight: inherit;
+            transition: opacity 0.15s;
+        }
+
+        button.status-badge.disconnected:hover {
+            opacity: 0.8;
+        }
+
+        .status-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: currentColor;
+        }
+
+        /* Temperature Hero */
+        .temp-hero {
+            text-align: center;
+            padding: 40px 0 36px;
+            position: relative;
+        }
+
+        .temp-hero::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 200px;
+            height: 200px;
+            border-radius: 50%;
+            background: radial-gradient(circle, var(--accent-glow) 0%, transparent 70%);
+            pointer-events: none;
+        }
+
+        .temp-label {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            margin-bottom: 8px;
+        }
+
+        .temp-display {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            position: relative;
+        }
+
+        .temp-btn {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            border: 1px solid var(--border);
+            background: var(--surface);
+            color: var(--text);
+            font-size: 18px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.15s;
+        }
+
+        .temp-btn:hover {
+            border-color: var(--accent);
+            background: var(--accent-glow);
+            color: var(--accent);
+        }
+
+        .temp-value {
+            font-size: 72px;
+            font-weight: 700;
+            line-height: 1;
+            letter-spacing: -3px;
+            color: var(--text);
+        }
+
+        .temp-unit {
+            font-size: 24px;
+            font-weight: 500;
+            color: var(--text-muted);
+            margin-left: -4px;
+            align-self: flex-start;
+            margin-top: 12px;
+        }
+
+        .temp-readings {
+            display: flex;
+            justify-content: center;
+            gap: 24px;
+            margin-top: 16px;
+            font-size: 13px;
+            color: var(--text-dim);
+        }
+
+        .temp-readings span {
+            color: var(--text);
+            font-weight: 600;
+        }
+
+        /* Card */
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            overflow: hidden;
+        }
+
+        /* Control Sections */
+        .section {
+            padding: 16px 20px;
+        }
+
+        .section + .section {
+            border-top: 1px solid var(--border);
+        }
+
+        .section-label {
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            margin-bottom: 10px;
+        }
+
+        /* Pill Group */
+        .pill-group {
+            display: flex;
+            gap: 4px;
+            flex-wrap: wrap;
+        }
+
+        .pill {
+            padding: 7px 14px;
+            border-radius: 100px;
+            border: 1px solid var(--border);
+            background: transparent;
+            color: var(--text-dim);
+            font-family: inherit;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.15s;
+            white-space: nowrap;
+        }
+
+        .pill:hover {
+            border-color: var(--text-muted);
+            color: var(--text);
+        }
+
+        .pill.active {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: #fff;
+        }
+
+        .pill.active-green {
+            background: var(--green);
+            border-color: var(--green);
+            color: #fff;
+        }
+
+        .pill.active-red {
+            background: var(--red);
+            border-color: var(--red);
+            color: #fff;
+        }
+
+        /* Power row */
+        .power-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .power-row .pill-group {
+            gap: 6px;
+        }
+
+        .power-label {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text);
+        }
+
+        /* Device Info */
+        .info-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        .info-item {
+            font-size: 12px;
+        }
+
+        .info-item .label {
+            color: var(--text-muted);
+            font-weight: 500;
+            margin-bottom: 2px;
+        }
+
+        .info-item .value {
+            color: var(--text-dim);
+            font-weight: 600;
+        }
+
+        /* Toast */
+        .toast {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            padding: 10px 18px;
+            border-radius: var(--radius-sm);
+            background: var(--red);
+            color: white;
+            font-size: 13px;
+            font-weight: 500;
+            animation: toast 4s ease forwards;
+            z-index: 50;
+        }
+
+        @keyframes toast {
+            0% { opacity: 0; transform: translateY(8px); }
+            10% { opacity: 1; transform: translateY(0); }
+            80% { opacity: 1; }
+            100% { opacity: 0; }
+        }
+
+        /* Programs & Timeline */
+        .program {
+            padding: 12px;
+            border-radius: var(--radius-sm);
+            background: var(--surface-2);
+            border: 1px solid var(--border);
+            overflow: hidden;
+        }
+
+        .program-disabled { opacity: 0.45; }
+
+        .program-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 12px;
+        }
+
+        .program-days {
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--text);
+        }
+
+        .program-controls { display: flex; gap: 4px; }
+
+        /* Timeline visualization */
+        .timeline {
+            position: relative;
+            height: 32px;
+            border-radius: 6px;
+            overflow: hidden;
+            background: var(--bg);
+            margin-bottom: 4px;
+        }
+
+        .timeline-block {
+            position: absolute;
+            top: 0;
+            height: 24px;
+            border-radius: 4px;
+            background: var(--accent-glow);
+            border: 1px solid var(--accent);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            cursor: default;
+        }
+
+        .timeline-block:nth-child(odd) {
+            background: rgba(52, 199, 89, 0.12);
+            border-color: var(--green);
+        }
+
+        .timeline-temp {
+            font-size: 10px;
+            font-weight: 700;
+            color: var(--text);
+            white-space: nowrap;
+        }
+
+        .timeline-markers {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 8px;
+            overflow: hidden;
+        }
+
+        .timeline-markers span {
+            position: absolute;
+            font-size: 8px;
+            color: var(--text-muted);
+            transform: translateX(-50%);
+            bottom: 0;
+        }
+
+        .timeline-markers span:last-child {
+            transform: translateX(-100%);
+        }
+
+        /* Period list */
+        .period-list {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            margin: 8px 0;
+        }
+
+        .period-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 0;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .period-item:last-child { border-bottom: none; }
+
+        .period-del {
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            border: none;
+            background: transparent;
+            color: var(--red);
+            font-size: 16px;
+            font-weight: 700;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            opacity: 0.4;
+            transition: opacity 0.15s;
+        }
+
+        .period-del:hover { opacity: 1; }
+
+        .period-edit-form {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            flex: 1;
+            min-width: 0;
+        }
+
+        .period-field {
+            font-family: inherit;
+            font-size: 13px;
+            background: var(--bg);
+            color: var(--text);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 5px 7px;
+            transition: border-color 0.15s;
+            cursor: pointer;
+        }
+
+        .period-field:hover {
+            border-color: var(--text-muted);
+        }
+
+        .period-field:focus {
+            outline: none;
+            border-color: var(--accent);
+            cursor: text;
+        }
+
+        .period-field-time {
+            width: 64px;
+            font-weight: 700;
+            flex-shrink: 0;
+        }
+
+        .period-field-name {
+            flex: 1;
+            color: var(--text-dim);
+            min-width: 40px;
+        }
+
+        .period-field-mode {
+            width: 58px;
+            color: var(--text-dim);
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+
+        .period-field-temp {
+            width: 40px;
+            font-weight: 700;
+            color: var(--accent);
+            text-align: right;
+            -moz-appearance: textfield;
+            flex-shrink: 0;
+        }
+
+        .period-field-temp::-webkit-inner-spin-button,
+        .period-field-temp::-webkit-outer-spin-button {
+            -webkit-appearance: none;
+        }
+
+        .period-unit {
+            font-size: 12px;
+            color: var(--text-muted);
+            flex-shrink: 0;
+        }
+
+        .schedule-toggle-btn { padding: 4px 10px !important; font-size: 11px !important; }
+
+        .schedule-del-btn {
+            padding: 4px 8px !important;
+            font-size: 14px !important;
+            color: var(--text-muted) !important;
+        }
+        .schedule-del-btn:hover { color: var(--red) !important; border-color: var(--red) !important; }
+
+        .schedule-error {
+            padding: 8px 12px;
+            margin-bottom: 8px;
+            border-radius: var(--radius-sm);
+            background: var(--red-glow);
+            color: var(--red);
+            font-size: 13px;
+            font-weight: 500;
+        }
+
+        .schedule-empty {
+            text-align: center;
+            padding: 16px;
+            font-size: 13px;
+            color: var(--text-muted);
+        }
+
+        .schedule-add { margin-top: 8px; }
+
+        .schedule-add-btn {
+            font-family: inherit;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--accent);
+            cursor: pointer;
+            list-style: none;
+            padding: 6px 0;
+        }
+        .schedule-add-btn::-webkit-details-marker { display: none; }
+        .schedule-add-btn:hover { color: var(--text); }
+
+        .schedule-form {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid var(--border);
+        }
+
+        .form-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .form-row label {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-muted);
+            width: 48px;
+            flex-shrink: 0;
+        }
+
+        .form-input {
+            flex: 1;
+            padding: 7px 10px;
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--border);
+            background: var(--bg);
+            color: var(--text);
+            font-family: inherit;
+            font-size: 13px;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+
+        .form-temp-picker {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex: 1;
+        }
+
+        .form-range {
+            flex: 1;
+            accent-color: var(--accent);
+        }
+
+        .form-temp-value {
+            font-size: 15px;
+            font-weight: 700;
+            color: var(--text);
+            min-width: 42px;
+            text-align: right;
+        }
+
+        .day-picker {
+            display: flex;
+            gap: 4px;
+        }
+
+        .day-chip {
+            cursor: pointer;
+        }
+
+        .day-checkbox {
+            display: none;
+        }
+
+        .day-label {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            border: 1px solid var(--border);
+            background: transparent;
+            color: var(--text-dim);
+            font-size: 12px;
+            font-weight: 600;
+            transition: all 0.15s;
+        }
+
+        .day-label:hover {
+            border-color: var(--accent);
+            color: var(--text);
+        }
+
+        .day-checkbox:checked + .day-label {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: #fff;
+        }
+
+        .form-submit {
+            align-self: flex-end;
+            margin-top: 4px;
+        }
+
+        /* Theme toggle */
+        .theme-toggle {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            border: 1px solid var(--border);
+            background: var(--surface);
+            color: var(--text-dim);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.15s;
+            font-size: 16px;
+        }
+
+        .theme-toggle:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        /* Smooth theme transition */
+        body, .card, .section, .pill, .temp-btn, .status-badge, .theme-toggle {
+            transition: background 0.25s, color 0.25s, border-color 0.25s;
+        }
+
+        /* HTMX loading state */
+        .htmx-request { opacity: 0.6; pointer-events: none; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <div class="header">
+            <h1>{{ state.name or "Heat Pump" }}</h1>
+            <div class="header-right">
+                <div id="connection-status">
+                    {% if state.connected %}
+                    <div class="status-badge"><div class="status-dot"></div>Connected</div>
+                    {% else %}
+                    <button class="status-badge disconnected"
+                            hx-post="/reconnect" hx-target="body" hx-swap="innerHTML"
+                            hx-indicator="#connection-status"
+                            title="Click to reconnect">
+                        <div class="status-dot"></div>Reconnect
+                    </button>
+                    {% endif %}
+                </div>
+                <button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme">
+                    <span id="theme-icon">&#9790;</span>
+                </button>
+            </div>
+        </div>
+
+        <div id="controls">
+            {% include "partials/controls.html" %}
+        </div>
+
+        <div style="height: 12px;"></div>
+
+        <div id="schedules">
+            {% include "partials/schedules.html" %}
+        </div>
+
+        <div style="height: 12px;"></div>
+
+        <div id="status">
+            {% include "partials/status.html" %}
+        </div>
+    </div>
+
+    <div id="toast-container"></div>
+
+    <script>
+        // Poll for state updates every 10 seconds
+        var lastState = '';
+        function pollState() {
+            fetch('/api/state').then(function(r) { return r.text(); }).then(function(data) {
+                if (data !== lastState) {
+                    lastState = data;
+                    htmx.ajax('GET', '/partials/controls', {target: '#controls', swap: 'innerHTML'});
+                    htmx.ajax('GET', '/partials/status', {target: '#status', swap: 'innerHTML'});
+                }
+            }).catch(function() {});
+        }
+        setInterval(pollState, 10000);
+
+        document.body.addEventListener('htmx:afterSwap', function(e) {
+            var err = e.detail.target.querySelector('[data-error]');
+            if (err) showToast(err.dataset.error);
+        });
+
+        function showToast(msg) {
+            var t = document.createElement('div');
+            t.className = 'toast';
+            t.textContent = msg;
+            document.getElementById('toast-container').appendChild(t);
+            setTimeout(function() { t.remove(); }, 4000);
+        }
+
+        function toggleTheme() {
+            var html = document.documentElement;
+            var current = html.getAttribute('data-theme') || 'dark';
+            var next = current === 'dark' ? 'light' : 'dark';
+            html.setAttribute('data-theme', next);
+            localStorage.setItem('theme', next);
+            updateThemeIcon(next);
+        }
+
+        function updateThemeIcon(theme) {
+            var icon = document.getElementById('theme-icon');
+            icon.textContent = theme === 'dark' ? '\u263E' : '\u2600';
+        }
+
+        // Apply saved theme on load
+        (function() {
+            var saved = localStorage.getItem('theme') || 'dark';
+            document.documentElement.setAttribute('data-theme', saved);
+            updateThemeIcon(saved);
+        })();
+
+        // Auto-reconnect when disconnected (every 60s)
+        {% if not state.connected %}
+        var _reconnectTimer = setInterval(function() {
+            var btn = document.querySelector('button.status-badge.disconnected');
+            if (btn) {
+                btn.click();
+            } else {
+                clearInterval(_reconnectTimer);
+            }
+        }, 60000);
+        {% endif %}
+    </script>
+</body>
+</html>

@@ -1,0 +1,31 @@
+<div class="card">
+    <div class="section">
+        <div class="section-label">Device</div>
+        <div class="info-grid">
+            <div class="info-item">
+                <div class="label">Energy (since Jan 1)</div>
+                <div class="value">
+                    {% if state.energy_wh is not none %}
+                        {{ "{:,.1f}".format(state.energy_wh / 1000) }} kWh
+                    {% else %}--{% endif %}
+                </div>
+            </div>
+            <div class="info-item">
+                <div class="label">Self-cleaning</div>
+                <div class="value">{{ state.ac_self_cleaning.value }}</div>
+            </div>
+            <div class="info-item">
+                <div class="label">Indoor</div>
+                <div class="value">{{ state.fcu or "--" }}</div>
+            </div>
+            <div class="info-item">
+                <div class="label">Outdoor</div>
+                <div class="value">{{ state.cdu or "--" }}</div>
+            </div>
+            <div class="info-item">
+                <div class="label">Firmware</div>
+                <div class="value">{{ state.firmware_version or "--" }}</div>
+            </div>
+        </div>
+    </div>
+</div>
