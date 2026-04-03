@@ -5,19 +5,24 @@ Fills NULL outdoor_temp values in the readings database using historical
 weather data. Open-Meteo is free and requires no API key.
 
 Usage:
+    python scripts/enrich_weather.py --city Stockholm
     python scripts/enrich_weather.py --lat 59.33 --lon 18.07
-
-Latitude/longitude default to Stockholm, Sweden. Adjust for your location.
 """
 
 import argparse
 import json
 import sqlite3
+import urllib.parse
 import urllib.request
 from datetime import datetime
 from pathlib import Path
 
 DB_PATH = Path(__file__).resolve().parent.parent / "data" / "readings.db"
+
+GEOCODING_URL = (
+    "https://geocoding-api.open-meteo.com/v1/search"
+    "?name={city}&count=1&language=en&format=json"
+)
 
 OPEN_METEO_URL = (
     "https://archive-api.open-meteo.com/v1/archive"
@@ -77,12 +82,31 @@ def enrich(db: sqlite3.Connection, lookup: dict[str, float]) -> int:
     return updated
 
 
+def geocode(city: str) -> tuple[float, float]:
+    """Resolve a city name to lat/lon using Open-Meteo geocoding."""
+    url = GEOCODING_URL.format(city=urllib.parse.quote(city))
+    with urllib.request.urlopen(url) as resp:
+        data = json.loads(resp.read())
+    results = data.get("results")
+    if not results:
+        raise ValueError(f"City not found: {city}")
+    r = results[0]
+    print(f"Resolved '{city}' to {r['name']}, {r.get('country', '')} ({r['latitude']}, {r['longitude']})")
+    return r["latitude"], r["longitude"]
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--lat", type=float, default=59.33, help="Latitude (default: Stockholm)")
-    parser.add_argument("--lon", type=float, default=18.07, help="Longitude (default: Stockholm)")
+    parser.add_argument("--city", type=str, help="City name (e.g. Stockholm, London, Tokyo)")
+    parser.add_argument("--lat", type=float, help="Latitude")
+    parser.add_argument("--lon", type=float, help="Longitude")
     parser.add_argument("--db", type=str, default=str(DB_PATH), help="Path to readings.db")
     args = parser.parse_args()
+
+    if args.city:
+        args.lat, args.lon = geocode(args.city)
+    elif args.lat is None or args.lon is None:
+        parser.error("Provide --city or both --lat and --lon")
 
     db_path = Path(args.db)
     if not db_path.exists():

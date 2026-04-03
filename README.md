@@ -75,10 +75,11 @@ The app logs device state to `data/readings.db` (SQLite) every 5 minutes while c
 If the device doesn't report outdoor temperature (or the app was off), you can fill gaps using historical weather data:
 
 ```bash
-python scripts/enrich_weather.py --lat 59.33 --lon 18.07
+python scripts/enrich_weather.py --city Stockholm
+# or: python scripts/enrich_weather.py --lat 59.33 --lon 18.07
 ```
 
-Uses [Open-Meteo](https://open-meteo.com/) — free, no API key required. Adjust `--lat` and `--lon` for your location.
+Uses [Open-Meteo](https://open-meteo.com/) — free, no API key required.
 
 ## Running Tests
 
