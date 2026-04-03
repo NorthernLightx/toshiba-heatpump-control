@@ -10,6 +10,10 @@ A local web dashboard for controlling Toshiba heat pumps (AC units) from your PC
 - **Smart UI**: Only shows controls your device actually supports
 - **Reconnect**: Auto-reconnects every 60s when disconnected, with a manual reconnect button
 - **HADA swing mode**: Supports newer Toshiba units with HADA swing (patched into the library)
+- **Data logging**: Records temperature, energy consumption, and device state to SQLite every 5 minutes — toggle on/off from the UI
+- **CSV export**: Download logged data as CSV from the dashboard for analysis
+- **Energy delta tracking**: Per-interval energy consumption with automatic gap detection (app restarts, counter resets)
+- **Weather enrichment**: Backfill missing outdoor temperatures from [Open-Meteo](https://open-meteo.com/) (free, no API key)
 - **Dark/Light theme**: Toggle with one click, persists across sessions
 - **First-run setup**: Prompts for credentials on first launch if `.env` is not configured
 
@@ -57,11 +61,31 @@ First startup takes ~30 seconds while connecting to the Toshiba cloud API. If th
 - **Frontend**: Jinja2 templates + HTMX + custom CSS
 - **Real-time**: Server-Sent Events (SSE)
 - **Scheduling**: APScheduler
+- **Data storage**: SQLite (built into Python, no installation needed)
 - **Heat pump API**: [toshiba-ac](https://github.com/KaSroka/Toshiba-AC-control) library (cloud-based via Azure IoT Hub)
 
 ## How It Works
 
 The app connects to Toshiba's cloud service (`mobileapi.toshibahomeaccontrols.com`) using your app credentials. Commands are sent via Azure IoT Hub (AMQP), and state updates are received in real-time. The web dashboard runs locally on your PC.
+
+## Data Logging
+
+The app logs device state to `data/readings.db` (SQLite) every 5 minutes while connected. Logged fields: indoor/outdoor temperature, target temperature, energy consumption (cumulative + delta), AC mode, status, fan mode, and power level.
+
+- **Toggle**: On/Off button in the Device section of the dashboard
+- **Export**: Click "Export CSV" in the dashboard, or visit `http://127.0.0.1:8000/api/readings/export.csv`
+- **API**: `GET /api/readings?limit=1000&offset=0` returns JSON, `GET /api/readings/stats` returns summary
+- **Config**: Set `DATA_LOGGING=false` in `.env` to disable by default
+
+### Backfill outdoor temperature from weather data
+
+If the device doesn't report outdoor temperature (or the app was off), you can fill gaps using historical weather data:
+
+```bash
+python scripts/enrich_weather.py --lat 59.33 --lon 18.07
+```
+
+Uses [Open-Meteo](https://open-meteo.com/) — free, no API key required. Adjust `--lat` and `--lon` for your location.
 
 ## Running Tests
 

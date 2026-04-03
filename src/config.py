@@ -15,6 +15,7 @@ class Settings:
         self.toshiba_pass: str = os.environ.get("TOSHIBA_PASS", "")
         self.host: str = os.environ.get("HOST", "127.0.0.1")
         self.port: int = int(os.environ.get("PORT", "8000"))
+        self.data_logging: bool = os.environ.get("DATA_LOGGING", "true").lower() in ("true", "1", "yes")
 
     def validate(self) -> None:
         if not self.toshiba_user or not self.toshiba_pass:

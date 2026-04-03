@@ -7,8 +7,9 @@ from contextlib import asynccontextmanager
 import uvicorn
 
 from src.config import settings
+from src.datalog import data_logger
 from src.manager import manager
-from src.routes import app, heartbeat_loop
+from src.routes import app, datalog_loop, heartbeat_loop
 from src.scheduler import schedule_manager
 
 logging.basicConfig(
@@ -32,6 +33,10 @@ async def lifespan(app):
 
     heartbeat_task = asyncio.create_task(heartbeat_loop())
 
+    # Data logging
+    data_logger.enabled = settings.data_logging
+    datalog_task = asyncio.create_task(datalog_loop())
+
     # Start scheduler
     schedule_manager.start()
     logger.info("Scheduler started")
@@ -45,11 +50,17 @@ async def lifespan(app):
 
     # Shutdown
     heartbeat_task.cancel()
+    datalog_task.cancel()
     try:
         await heartbeat_task
     except asyncio.CancelledError:
         pass
+    try:
+        await datalog_task
+    except asyncio.CancelledError:
+        pass
     schedule_manager.stop()
+    data_logger.close()
     await manager.disconnect()
     logger.info("Shutdown complete")
 

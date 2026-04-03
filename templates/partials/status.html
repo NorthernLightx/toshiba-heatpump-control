@@ -28,4 +28,36 @@
             </div>
         </div>
     </div>
+
+    <div class="section">
+        <div class="power-row">
+            <div>
+                <div class="power-label">Data Logging</div>
+                {% if data_logging and data_stats and data_stats.total_readings > 0 %}
+                <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">
+                    {{ data_stats.total_readings }} readings
+                </div>
+                {% endif %}
+            </div>
+            <div class="pill-group" style="gap: 6px;">
+                {% if data_stats and data_stats.total_readings > 0 %}
+                <a href="/api/readings/export.csv" class="pill"
+                   style="font-size: 11px; padding: 4px 10px; text-decoration: none;">
+                    Export CSV
+                </a>
+                {% else %}
+                <span class="pill" style="font-size: 11px; padding: 4px 10px; opacity: 0.35; cursor: default;"
+                      title="Data will appear after the first 5-minute recording">
+                    Export CSV
+                </span>
+                {% endif %}
+                <button class="pill {% if data_logging %}active-green{% endif %}"
+                        hx-post="/logging/toggle"
+                        hx-target="#status" hx-swap="innerHTML"
+                        style="font-size: 11px; padding: 4px 10px;">
+                    {{ "On" if data_logging else "Off" }}
+                </button>
+            </div>
+        </div>
+    </div>
 </div>

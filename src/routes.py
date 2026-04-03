@@ -3,11 +3,12 @@ import logging
 from pathlib import Path
 from typing import Annotated
 
-from fastapi import FastAPI, Form, Request
-from fastapi.responses import HTMLResponse, PlainTextResponse, StreamingResponse
+from fastapi import FastAPI, Form, Query, Request
+from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
 
 from src.config import settings
+from src.datalog import data_logger
 from src.manager import (
     AcAirPureIon,
     AcFanMode,
@@ -107,6 +108,8 @@ def _build_context(request: Request) -> dict:
         "AcMeritB": AcMeritB,
         "AcAirPureIon": AcAirPureIon,
         "programs": schedule_manager.programs,
+        "data_logging": data_logger.enabled,
+        "data_stats": data_logger.get_stats() if data_logger.enabled else None,
     }
 
 
@@ -146,6 +149,37 @@ async def reconnect(request: Request) -> HTMLResponse:
     # Return the full page so connection status + controls all refresh
     ctx = _build_context(request)
     return templates.TemplateResponse("index.html", ctx)
+
+
+@app.post("/logging/toggle", response_class=HTMLResponse)
+async def toggle_logging(request: Request) -> HTMLResponse:
+    data_logger.enabled = not data_logger.enabled
+    ctx = _build_context(request)
+    return templates.TemplateResponse("partials/status.html", ctx)
+
+
+@app.get("/api/readings", response_class=JSONResponse)
+async def get_readings(
+    limit: int = Query(default=1000, le=10000),
+    offset: int = Query(default=0, ge=0),
+) -> JSONResponse:
+    return JSONResponse(data_logger.get_readings(limit=limit, offset=offset))
+
+
+@app.get("/api/readings/export.csv")
+async def export_readings_csv() -> PlainTextResponse:
+    """Download all readings as a CSV file."""
+    csv_data = data_logger.export_csv()
+    return PlainTextResponse(
+        csv_data,
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=readings.csv"},
+    )
+
+
+@app.get("/api/readings/stats", response_class=JSONResponse)
+async def get_readings_stats() -> JSONResponse:
+    return JSONResponse(data_logger.get_stats())
 
 
 @app.get("/api/state", response_class=PlainTextResponse)
@@ -358,6 +392,17 @@ async def heartbeat_loop() -> None:
     while True:
         await asyncio.sleep(30)
         await broadcaster.send_heartbeat()
+
+
+async def datalog_loop() -> None:
+    """Record device state every 5 minutes."""
+    await asyncio.sleep(10)  # short delay for initial connection
+    while True:
+        try:
+            data_logger.record(manager.state)
+        except Exception:
+            logger.exception("Data logging failed")
+        await asyncio.sleep(300)
 
 
 manager.on_state_changed = _on_state_changed
